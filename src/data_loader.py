@@ -32,9 +32,7 @@ import yfinance as yf
 import pandas as pd
 
 load_dotenv()
-logging.basicConfig(level=logging.INFO,
-                    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-                    )
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("data_loader")
 
 class LoadData:
@@ -153,12 +151,6 @@ class LoadData:
             logger.info("Aligning and concatenating M1 data with index data...")
             combined_df = pd.concat([m1_df, index_df], axis=1, join='outer')
             logger.debug("Combined DataFrame head:\n%s", combined_df.head())
-            nan_count = combined_df.isna().sum().sum()
-
-            if nan_count > 0:
-                logger.warning("Found %d NaN values.", nan_count)
-            combined_df.dropna(inplace=True)
-            logger.debug("Rows remaining after NaN removal: %d", combined_df.shape[0])
 
             combined_df.to_csv(self.save_path, index=True)
             logger.info("Appended index data to %s.", self.save_path)
@@ -205,6 +197,22 @@ class LoadData:
             logger.info("Aligning and concatenating M1 and index data with stock data...")
             combined_df = pd.concat([m1_df, stock_df], axis=1, join='outer')
             logger.debug("Combined DataFrame head:\n%s", combined_df.head())
+
+            combined_df.index = pd.to_datetime(combined_df.index)
+            combined_df.index.name = 'Date'
+            start = pd.to_datetime(self.start_date)
+            end = pd.to_datetime(self.end_date)
+            month_starts = pd.date_range(start=start, end=end, freq='MS')
+            combined_df = combined_df.reindex(combined_df.index.union(month_starts)).sort_index()
+            combined_df.index.name = 'Date'
+            for col in combined_df.columns:
+                series = combined_df[col]
+                interp = series.interpolate(method='time', limit_direction='both')
+                month_mask = series.index.isin(month_starts) & series.isna()
+                if month_mask.any():
+                    series.loc[month_mask] = interp.loc[month_mask]
+                combined_df[col] = series
+
             nan_count = combined_df.isna().sum().sum()
 
             if nan_count > 0:

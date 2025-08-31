@@ -1,6 +1,6 @@
 load_data:
-  fred_series_id: "M1SL"
-  start_date: "2020-01-01"
+  fred_series_id: "MANMM101USM189S"
+  start_date: "2000-01-01"
   end_date: "2025-07-01"
   output_file: "./data/data.csv"
   index_ticker: "^GSPC"

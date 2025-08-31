@@ -1,7 +1,7 @@
 load_data:
   fred_series_id: "MANMM101USM189S"
   start_date: "2000-01-01"
-  end_date: "2025-07-01"
+  end_date: "2023-11-01"
   output_file: "./data/data.csv"
   index_ticker: "^GSPC"
   constituent_ticker: "AAPL"

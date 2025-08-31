@@ -4,3 +4,4 @@ load_data:
   end_date: "2025-07-01"
   output_file: "./data/data.csv"
   index_ticker: "^GSPC"
+  constituent_ticker: "AAPL"

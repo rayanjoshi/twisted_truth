@@ -1,0 +1,5 @@
+load_data:
+  fred_series_id: "M1SL"
+  start_date: "2020-01-01"
+  end_date: "2025-07-01"
+  output_file: "./data/data.csv"

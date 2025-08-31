@@ -1,2 +1,6 @@
 .venv
 .env
+build/
+*.egg-info
+/data/*
+/outputs

@@ -1,0 +1,6 @@
+defaults:
+  - _self_
+  - data_loader
+
+correlation:
+  min_periods: 6

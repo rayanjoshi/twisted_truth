@@ -8,7 +8,7 @@
 
 Lightweight tools to collect and visualise M1 money supply against equity indices and constituents.
 
-This small repo fetches M1 from FRED, appends market data from Yahoo Finance, and provides
+This small repo fetches M1 Money Supply from FRED, appends market data from Yahoo Finance, and provides
 simple utilities to visualise the series and compute long/short-term correlations.
 
 ## Features
@@ -16,6 +16,16 @@ simple utilities to visualise the series and compute long/short-term correlation
 - Append index and constituent close prices from Yahoo Finance.
 - Visualise M1 vs an index and a constituent using matplotlib.
 - Compute per-year and per-quarter Pearson correlations with optional time-lagging to output a Fisher z-transformed averaged correlation coefficent.
+
+Key concept — Fisher z-transformed average correlation
+- Problem: averaging Pearson r values directly is biased.
+- Approach (used by `src/calculating_correlation.py`):
+	1. Compute Pearson r for each group (e.g. each year or each quarter).
+	2. Apply Fisher z-transform: z = arctanh(r) (maps r in (-1,1) to real line).
+	3. Average the z values: mean_z = mean(z_i).
+	4. Convert back to correlation: avg_r = tanh(mean_z).
+
+	This stabilises variance and gives a sound aggregated correlation estimate.
 
 ## Quick start
 
@@ -28,28 +38,18 @@ pip install -U pip
 pip install -e .
 ```
 
-2. Provide secrets in a `.env` file at repository root. At minimum set:
+2. Provide secrets in a `.env` file at repository root:
 
 ```bash
+cp .env.example .env
+
 FRED_API_KEY=your_fred_api_key_here
 ```
 
-3. Run the data loader (this uses Hydra and the config in `configs/data_loader.yaml`):
+3. Run the srcipts:
 
 ```bash
-python src/data_loader.py
-```
-
-4. Visualise the saved CSV:
-
-```bash
-python src/data_visualiser.py
-```
-
-5. Run the correlation analysis:
-
-```bash
-python src/calculating_correlation.py
+python run.py
 ```
 
 ## Configuration

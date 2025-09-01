@@ -4,3 +4,4 @@ defaults:
 
 correlation:
   min_periods: 6
+  lag_period: 3

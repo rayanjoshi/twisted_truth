@@ -36,6 +36,20 @@ class CalculateCorrelation:
         self.df = pd.read_csv(self.data_path, index_col='Date', parse_dates=True)
         self.money_supply_col = 'M1_Money_Supply'
         self.index_col_name = f"{cfg.load_data.index_ticker}_Close"
+        self.lag_period = cfg.correlation.lag_period
+        self.time_lag = False
+
+    def apply_time_lag(self):
+        """
+        Apply a time lag to a specified column in the DataFrame.
+
+        Shifts the values in the column specified by `index_col_name` by `lag_period` 
+        periods, removes rows with missing values resulting from the shift, and sets 
+        the `time_lag` attribute to True.
+        """
+        self.df[self.index_col_name] = self.df[self.index_col_name].shift(self.lag_period)
+        self.df.dropna(inplace=True)
+        self.time_lag = True
 
     def compute_long_term_correlation(self):
         """
@@ -60,9 +74,10 @@ class CalculateCorrelation:
         logger.debug("Correlation: %s, Z-Score: %s", r, z_score)
         avg_z = np.mean(z_score) if z_score.size > 0 else np.nan
         avg_r = np.tanh(avg_z) if not np.isnan(avg_z) else np.nan
-        logger.info("Average Long-Term Correlation: %s", avg_r)
-
-        return avg_r
+        if self.time_lag:
+            logger.info("Average Long-Term Correlation (with lag): %s", avg_r)
+        else:
+            logger.info("Average Long-Term Correlation: %s", avg_r)
 
     def compute_short_term_correlation(self):
         """
@@ -87,9 +102,10 @@ class CalculateCorrelation:
         logger.debug("Correlation: %s, Z-Score: %s", r, z_score)
         avg_z = np.mean(z_score) if z_score.size > 0 else np.nan
         avg_r = np.tanh(avg_z) if not np.isnan(avg_z) else np.nan
-        logger.info("Average Short-Term Correlation: %s", avg_r)
-
-        return avg_r
+        if self.time_lag:
+            logger.info("Average Short-Term Correlation (with lag): %s", avg_r)
+        else:
+            logger.info("Average Short-Term Correlation: %s", avg_r)
 
 @hydra.main(version_base=None, config_path="../configs", config_name="calculating_correlation")
 def main(cfg: Optional[DictConfig]=None):
@@ -102,6 +118,9 @@ def main(cfg: Optional[DictConfig]=None):
         cfg: Hydra configuration object, defaults to None.
     """
     calculator = CalculateCorrelation(cfg)
+    calculator.compute_long_term_correlation()
+    calculator.compute_short_term_correlation()
+    calculator.apply_time_lag()
     calculator.compute_long_term_correlation()
     calculator.compute_short_term_correlation()
 

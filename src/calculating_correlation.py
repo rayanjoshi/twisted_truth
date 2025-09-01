@@ -7,6 +7,7 @@ between M1 money supply and a specified index's closing prices using pandas and 
 from pathlib import Path
 from typing import Optional
 import logging
+import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 from omegaconf import DictConfig
@@ -25,8 +26,10 @@ class CalculateCorrelation:
         df (pd.DataFrame): DataFrame containing the input data with Date index.
         money_supply_col (str): Column name for M1 money supply data.
         index_col_name (str): Column name for the index's closing price.
+        lag_period (int): Number of periods to shift the index data for lag analysis.
+        time_lag (bool): Indicates whether a time lag has been applied to the data.
     """
-    def __init__(self, cfg: DictConfig):
+    def __init__(self, cfg: DictConfig, lag: int):
         super().__init__()
         self.cfg = cfg
         script_dir = Path(__file__).parent
@@ -36,7 +39,8 @@ class CalculateCorrelation:
         self.df = pd.read_csv(self.data_path, index_col='Date', parse_dates=True)
         self.money_supply_col = 'M1_Money_Supply'
         self.index_col_name = f"{cfg.load_data.index_ticker}_Close"
-        self.lag_period = cfg.correlation.lag_period
+        self.min_periods = cfg.correlation.min_periods
+        self.lag_period = lag
         self.time_lag = False
 
     def apply_time_lag(self):
@@ -63,21 +67,18 @@ class CalculateCorrelation:
             float: Average long-term correlation coefficient, or NaN if no valid data.
         """
         correlations = []
-        z_score = None
-        min_periods = self.cfg.correlation.min_periods
+        z_score = np.array([])
         for year, group in self.df.groupby(self.df.index.year):
             _unused = year
-            if len(group) >= min_periods:
+            if len(group) >= self.min_periods[0]:
                 r = group[self.money_supply_col].corr(group[self.index_col_name])
                 correlations.append(r)
         z_score = np.arctanh(correlations)
         logger.debug("Correlation: %s, Z-Score: %s", r, z_score)
         avg_z = np.mean(z_score) if z_score.size > 0 else np.nan
         avg_r = np.tanh(avg_z) if not np.isnan(avg_z) else np.nan
-        if self.time_lag:
-            logger.info("Average Long-Term Correlation (with lag): %s", avg_r)
-        else:
-            logger.info("Average Long-Term Correlation: %s", avg_r)
+        logger.info("Average Long-Term Correlation (%s months): %s", self.lag_period, avg_r)
+        return avg_r
 
     def compute_short_term_correlation(self):
         """
@@ -91,10 +92,10 @@ class CalculateCorrelation:
             float: Average short-term correlation coefficient, or NaN if no valid data.
         """
         correlations = []
-        z_score = None
+        z_score = np.array([])
         for (year, quarter), group in self.df.groupby([self.df.index.year, self.df.index.quarter]):
             _unused = year, quarter
-            if len(group) < 3:
+            if len(group) < self.min_periods[1]:
                 continue
             r = group[self.money_supply_col].corr(group[self.index_col_name])
             correlations.append(r)
@@ -102,27 +103,53 @@ class CalculateCorrelation:
         logger.debug("Correlation: %s, Z-Score: %s", r, z_score)
         avg_z = np.mean(z_score) if z_score.size > 0 else np.nan
         avg_r = np.tanh(avg_z) if not np.isnan(avg_z) else np.nan
-        if self.time_lag:
-            logger.info("Average Short-Term Correlation (with lag): %s", avg_r)
-        else:
-            logger.info("Average Short-Term Correlation: %s", avg_r)
+        logger.info("Average Short-Term Correlation (%s months): %s", self.lag_period, avg_r)
+
+        return avg_r
 
 @hydra.main(version_base=None, config_path="../configs", config_name="calculating_correlation")
 def main(cfg: Optional[DictConfig]=None):
     """
     Main function to compute long-term and short-term correlations.
 
-    Instantiates CalculateCorrelation and calls methods to compute correlations.
+    Instantiates CalculateCorrelation, computes correlations for specified lag periods,
+    and visualizes results in a bar chart.
 
     Args:
-        cfg: Hydra configuration object, defaults to None.
+        cfg (Optional[DictConfig]): Hydra configuration object, defaults to None.
     """
-    calculator = CalculateCorrelation(cfg)
-    calculator.compute_long_term_correlation()
-    calculator.compute_short_term_correlation()
-    calculator.apply_time_lag()
-    calculator.compute_long_term_correlation()
-    calculator.compute_short_term_correlation()
+    long_term_corr = []
+    short_term_corr = []
+    for lag in cfg.correlation.lag_periods:
+        calculator = CalculateCorrelation(cfg, lag)
+        calculator.apply_time_lag()
+        long_term_corr.append(calculator.compute_long_term_correlation())
+        short_term_corr.append(calculator.compute_short_term_correlation())
+
+    x = np.arange(len(cfg.correlation.lag_periods))
+    width = 0.25
+    multiplier = 0
+    corr_dict = {"Long Term": long_term_corr, "Short Term": short_term_corr}
+    fig, ax = plt.subplots(layout='constrained', figsize=(8, 6))
+    _unused = fig
+    bar_colours = ["#1f77b4", "#d62728"]
+    for attribute, measurement in corr_dict.items():
+        offset = width * multiplier
+        # set the bar facecolor per group and use a contrasting label color
+        rects = ax.bar(x + offset,
+                        measurement,
+                        width,
+                        label=attribute,
+                        color=bar_colours[multiplier]
+                        )
+        ax.bar_label(rects, padding=3)
+        multiplier += 1
+    ax.set_ylabel("Correlation Coefficient")
+    ax.set_xlabel("Lag Periods")
+    ax.set_xticks(x + width, labels=[f"{lag} months" for lag in cfg.correlation.lag_periods])
+    ax.set_title("Correlation Coefficients by Lag Period")
+    ax.legend()
+    plt.show()
 
 if __name__ == "__main__":
     main()

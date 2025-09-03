@@ -6,7 +6,7 @@
 	<img src="https://img.shields.io/badge/yaml-%23ffffff.svg?style=for-the-badge&logo=yaml&logoColor=151515" alt="yaml" />
 </p>
 
-Lightweight tools to collect and visualise M1 money supply against equity indices and constituents.
+Lightweight tools to collect and visualise M1 money supply against equity indices and constituents, and cryptocurrencies.
 
 This small repo fetches M1 Money Supply from FRED, appends market data from Yahoo Finance, and provides
 simple utilities to visualise the series and compute long/short-term correlations.
@@ -14,7 +14,7 @@ simple utilities to visualise the series and compute long/short-term correlation
 ## Features
 - Fetch M1 series from FRED and save a single CSV (`data/data.csv`).
 - Append index and constituent close prices from Yahoo Finance.
-- Visualise M1 vs an index and a constituent using matplotlib.
+- Visualise M1 vs an index, a constituent, and a cryptocurrency using matplotlib.
 - Compute per-year and per-quarter Pearson correlations with optional time-lagging to output a Fisher z-transformed averaged correlation coefficent.
 
 Key concept — Fisher z-transformed average correlation

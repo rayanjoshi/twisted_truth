@@ -5,3 +5,4 @@ load_data:
   output_file: "./data/data.csv"
   index_ticker: "^GSPC"
   constituent_ticker: "AAPL"
+  crypto_ticker: "BTC-USD"

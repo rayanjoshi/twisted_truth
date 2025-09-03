@@ -2,9 +2,10 @@
 Module for loading and processing financial data from FRED and Yahoo Finance.
 
 This module provides functionality to retrieve M1 money supply data from the FRED API,
-index data, and constituent stock data from Yahoo Finance. It combines these datasets
-into a single CSV file, handling data alignment and missing values. The module uses
-Hydra for configuration management and supports logging for debugging and monitoring.
+index data, and constituent stock data, and cryptocurrency data from Yahoo Finance. 
+It combines these datasets into a single CSV file, handling data alignment and missing values. 
+The module uses Hydra for configuration management and supports logging for debugging and 
+monitoring.
 
 The main entry point is the `main` function, which orchestrates the data loading process
 using the `LoadData` class.
@@ -53,6 +54,7 @@ class LoadData:
         save_path (Path): Resolved file path for saving the output CSV file.
         index_ticker (str): Ticker symbol for the index data.
         constituent_ticker (str): Ticker symbol for the constituent stock data.
+        crypto_ticker (str): Ticker symbol for the cryptocurrency data.
     """
     def __init__(self, cfg: DictConfig):
         super().__init__()
@@ -63,6 +65,7 @@ class LoadData:
         self.save_path = cfg.load_data.output_file
         self.index_ticker = cfg.load_data.index_ticker
         self.constituent_ticker = cfg.load_data.constituent_ticker
+        self.crypto_ticker = cfg.load_data.crypto_ticker
 
         script_dir = Path(__file__).parent
         repo_root = script_dir.parent
@@ -158,6 +161,51 @@ class LoadData:
             logger.error("An error occurred while processing the data: %s", e)
             raise
 
+    def get_crypto_data(self):
+        """
+        Downloads cryptocurrency data, combines it with existing M1 data, and saves the result.
+
+        This method retrieves historical cryptocurrency data from Yahoo Finance for the specified
+        ticker and date range, aligns it with existing M1 data from a CSV file, handles
+        missing values, and saves the combined dataset back to the CSV file.
+
+        Returns:
+            None
+
+        Raises:
+            FileNotFoundError: If the CSV file at `self.save_path` does not exist.
+            pandas.errors.EmptyDataError: If the CSV file is empty or corrupt.
+
+        Notes:
+            - Missing values in the combined dataset are dropped before saving.
+        """
+        try:
+            data = yf.download(self.crypto_ticker,
+                                start=self.start_date,
+                                end=self.end_date,
+                                multi_level_index=False,
+                                auto_adjust=True,
+                                )
+            logger.info("Retrieved %d records from Yahoo Finance for cryptocurrency: %s.",
+                        len(data), self.crypto_ticker)
+
+            crypto_df = data['Close'].rename(f'{self.crypto_ticker}_Close')
+            crypto_df.index = pd.to_datetime(crypto_df.index)
+            crypto_df.index.name = 'Date'
+
+            logger.info("Loading existing M1 data from %s...", self.save_path)
+            m1_df = pd.read_csv(self.save_path, index_col='Date', parse_dates=True)
+
+            logger.info("Aligning and concatenating M1 and index data with cryptocurrency data...")
+            combined_df = pd.concat([m1_df, crypto_df], axis=1, join='outer')
+            logger.debug("Combined DataFrame head:\n%s", combined_df.head())
+
+            combined_df.to_csv(self.save_path, index=True)
+            logger.info("Appended cryptocurrency data to %s.", self.save_path)
+        except (FileNotFoundError, pd.errors.EmptyDataError) as e:
+            logger.error("An error occurred while processing the data: %s", e)
+            raise
+
     def get_constituent_data(self):
         """
         Downloads constituent stock data, combines it with existing data, and saves the result.
@@ -236,7 +284,7 @@ def main(cfg: Optional[DictConfig]=None):
 
     This function initializes the `LoadData` class with the provided configuration
     and sequentially calls methods to retrieve M1 money supply data, index data,
-    and constituent stock data, combining them into a single CSV file.
+    cryptocurrency data, and constituent stock data, combining them into a single CSV file.
 
     Args:
         cfg (Optional[DictConfig]): Configuration object containing parameters for
@@ -249,6 +297,7 @@ def main(cfg: Optional[DictConfig]=None):
     data_loader = LoadData(cfg)
     data_loader.get_m1_data()
     data_loader.get_index_data()
+    data_loader.get_crypto_data()
     data_loader.get_constituent_data()
 
 if __name__ == "__main__":

@@ -38,17 +38,19 @@ class DataVisualiser:
         self.df = pd.read_csv(self.data_path, index_col='Date', parse_dates=True)
         self.index_col_name = f"{cfg.load_data.index_ticker}_Close"
         self.stock_col_name = f"{cfg.load_data.constituent_ticker}_Close"
+        self.crypto_col_name = f"{cfg.load_data.crypto_ticker}_Close"
 
     def plot_data(self):
         """
-        Create a plot of M1 money supply and stock prices.
+        Create a plot of M1 money supply and financial instrument prices.
 
         Generates a matplotlib figure with a primary axis for M1 money supply
-        and twin axes for the index and constituent stock prices. The plot
-        visualizes the relationship between these financial metrics over time.
+        and twin axes for the index and constituent stock prices, and a separate axis for the
+        cryptocurrency prices. The plot visualises the relationship between 
+        these financial metrics over time.
         """
-        fig, (ax1) = plt.subplots(1, 1, sharex=True, figsize=(8, 6))
-        fig.subplots_adjust(hspace=0.05)  # Small space between subplots
+        fig, (ax1, ax2) = plt.subplots(1, 2, sharex=True, figsize=(15, 7))
+        fig.subplots_adjust(wspace=0.35, left=0.175)  # Small space between subplots
 
 
         ax1.plot(self.df.index,
@@ -56,17 +58,28 @@ class DataVisualiser:
                 color='tab:blue',
                 label='M1 Money Supply',
                 )
-        ax2_index = ax1.twinx()
-        ax2_stock = ax1.twinx()
-        # Plot Index and Stock on ax2_index (higher range) and ax2_stock (lower range)
+        ax1_index = ax1.twinx()
+        ax1_stock = ax1.twinx()
+
+        ax2.plot(self.df.index,
+                self.df['M1_Money_Supply'],
+                color='tab:blue',
+                )
+        ax2_crypto = ax2.twinx()
+        ax2_crypto.plot(self.df.index,
+                        self.df[self.crypto_col_name],
+                        color='tab:red',
+                        label=f'{self.cfg.load_data.crypto_ticker} Price',
+                        )
+        # Plot Index and Stock on ax1_index (higher range) and ax1_stock (lower range)
         # Top axis for index (higher values, e.g., ~2900 and above)
-        ax2_index.plot(self.df.index,
+        ax1_index.plot(self.df.index,
                     self.df[self.index_col_name],
                     color='tab:orange',
                     label=f'{self.cfg.load_data.index_ticker} Close Price',
                     )
         # Bottom axis for stock (lower values, e.g., ~0 to 250)
-        ax2_stock.plot(self.df.index,
+        ax1_stock.plot(self.df.index,
                         self.df[self.stock_col_name],
                         color='tab:green',
                         label=f'{self.cfg.load_data.constituent_ticker} Close Price',
@@ -75,18 +88,21 @@ class DataVisualiser:
         # Labels and ticks
         ax1.set_xlabel('Date')
         ax1.set_ylabel('M1 Money Supply / US$')
+        ax2.set_ylabel('M1 Money Supply / US$')
+
         ax1.tick_params(axis='y', labelcolor='tab:blue')
+        ax2.tick_params(axis='y', labelcolor='tab:blue')
 
-        ax2_index.set_ylabel('Close Price / US$')
-        ax2_index.tick_params(axis='y', labelcolor='tab:orange')
-        ax2_stock.tick_params(axis='y', labelcolor='tab:green')
+        ax1_index.set_ylabel('Close Price / US$')
+        ax2_crypto.set_ylabel('Close Price / US$')
 
-        # Add legends
-        ax1.legend(loc='lower left')
-        ax2_index.legend(loc='lower center')
-        ax2_stock.legend(loc='lower right')
+        ax2.tick_params(axis='y', labelcolor='tab:blue')
+        ax2_crypto.tick_params(axis='y', labelcolor='tab:red')
+        ax1_index.tick_params(axis='y', labelcolor='tab:orange')
+        ax1_stock.tick_params(axis='y', labelcolor='tab:green')
 
-        plt.title('Relationship Between M1 Money Supply and Stock Prices')
+        fig.legend(loc='upper left')
+        plt.suptitle('Relationship Between M1 Money Supply and Financial Instrument Prices')
         plt.show()
 
 @hydra.main(version_base=None, config_path="../configs", config_name="data_visualiser")
